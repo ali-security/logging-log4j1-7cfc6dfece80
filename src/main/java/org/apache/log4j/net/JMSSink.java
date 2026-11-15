@@ -88,8 +88,7 @@ public class JMSSink implements javax.jms.MessageListener {
     try {
       Context ctx = new InitialContext();
       TopicConnectionFactory topicConnectionFactory;
-      topicConnectionFactory = (TopicConnectionFactory) lookup(ctx,
-                                                               tcfBindingName);
+      topicConnectionFactory = (TopicConnectionFactory) JNDIUtil.lookupObject(ctx, tcfBindingName);
 
       TopicConnection topicConnection =
 	                        topicConnectionFactory.createTopicConnection(username,
@@ -99,7 +98,7 @@ public class JMSSink implements javax.jms.MessageListener {
       TopicSession topicSession = topicConnection.createTopicSession(false,
                                                        Session.AUTO_ACKNOWLEDGE);
 
-      Topic topic = (Topic)ctx.lookup(topicBindingName);
+      Topic topic = (Topic) JNDIUtil.lookupObject(ctx, topicBindingName);
 
       TopicSubscriber topicSubscriber = topicSession.createSubscriber(topic);
     
@@ -135,9 +134,13 @@ public class JMSSink implements javax.jms.MessageListener {
   }
 
 
+  /**
+   * Looks up <code>name</code> in <code>ctx</code>. Only names in the
+   * <code>java:</code> namespace are accepted, see {@link JNDIUtil}.
+   */
   protected static Object lookup(Context ctx, String name) throws NamingException {
     try {
-      return ctx.lookup(name);
+      return JNDIUtil.lookupObject(ctx, name);
     } catch(NameNotFoundException e) {
       logger.error("Could not find name ["+name+"].");
       throw e;
