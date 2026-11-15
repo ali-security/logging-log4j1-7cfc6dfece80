@@ -1,0 +1,46 @@
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: "Single tests/build.xml test target to run (e.g. Core, SocketServer); empty runs the full runAll suite"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # log4j 1.2.17 compiles with source/target 1.4. setup-java no longer offers a
+      # JDK 7, so the build runs in maven:3-jdk-7 (OpenJDK 7u221, Maven 3.6.1), the
+      # image the previous log4j 1.2.17 seal was built with.
+      # It runs as the runner user, not root: ErrorHandlerTestCase relies on
+      # /xyz/:x.log being unwritable so the FallbackErrorHandler kicks in, and root
+      # can create /xyz.
+      # `mvn verify` is the project's own build (INSTALL: "mvn package"); its test
+      # phase runs tests/build.xml `runAll` through maven-antrun-plugin (Ant junit
+      # task, printsummary + plain formatter print per-suite "Tests run" counts).
+      - name: Build and test
+        run: |
+          mkdir -p "$RUNNER_TEMP/m2home"
+          FILTER_ARG=""
+          if [ -n "${{ inputs.test-filter }}" ]; then
+            FILTER_ARG="-Dlog4j.test.filter=${{ inputs.test-filter }}"
+          fi
+          docker run --rm --user "$(id -u):$(id -g)" --entrypoint mvn \
+            -v "$GITHUB_WORKSPACE:/w" -w /w \
+            -v "$RUNNER_TEMP/m2home:/m2home" -e HOME=/m2home \
+            -e MAVEN_OPTS="-Dhttps.protocols=TLSv1.2 -Duser.home=/m2home" \
+            maven:3-jdk-7 \
+            -B -V clean verify -Dmaven.site.skip=true $FILTER_ARG
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: log4j-jar
+          path: target/log4j-1.2.17.jar
+          if-no-files-found: error

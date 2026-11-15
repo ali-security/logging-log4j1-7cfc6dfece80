@@ -158,7 +158,18 @@
   <!-- ================================================================= -->
   <!-- Run all tests                                                     -->
   <!-- ================================================================= -->  
-  <target name="runAll" depends="regression, longUnit"/>
+  <!-- -Dlog4j.test.filter=<target> runs only that test target (CI test-filter); unset runs the full suite. -->
+  <target name="runAll" depends="runSelected, runFull"/>
+
+  <target name="runSelected" if="log4j.test.filter">
+    <antcall target="${log4j.test.filter}"/>
+  </target>
+
+  <target name="runFull" unless="log4j.test.filter">
+    <antcall target="runAllTests"/>
+  </target>
+
+  <target name="runAllTests" depends="regression, longUnit"/>
 
   <!-- ================================================================= -->
   <!-- Tests multiple parts of log4j. These tests are much more fragile  -->
@@ -366,6 +377,8 @@
   </target>
 
   <target name="ErrorHandler" depends="build">
+    <!-- Same path as XMLLayout/PatternLayout/etc.; avoid stale lines from earlier targets. -->
+    <delete file="output/temp"/>
     <junit printsummary="yes" fork="yes" 
          haltonfailure="${haltonfailure}" dir="${basedir}">
       <classpath refid="tests.classpath"/>
